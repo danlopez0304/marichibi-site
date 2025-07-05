@@ -13,6 +13,17 @@
   <!-- Manifest & Theme -->
   <link rel="manifest" href="site.webmanifest" />
   <meta name="theme-color" content="#f2c94c" />
+  <script>
+    // Dynamically set theme-color for dark mode in browsers that support JS
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      var metaThemeColor = document.querySelector("meta[name=theme-color]");
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute("content", "#22223b");
+      }
+    }
+  </script>
+  <meta name="msapplication-TileColor" content="#f2c94c" />
+  <link rel="mask-icon" href="safari-pinned-tab.svg" color="#f2c94c">
 
   <!-- iOS Specific -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -24,28 +35,168 @@
 
   <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
+ <!-- Firebase SDK (compat build) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+
+  <!-- Firebase Initialization -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js"></script>
+  
+  <!-- Custom JS -->
+  <script src="firebase-config.js"></script>
 </head>
 <body>
-  <div class="sparkles">
-    <!-- Optional sparkle animation (can add JS later) -->
-  </div>
+  <header class="navbar">
+    <div class="logo-title">
+      <img src="./images/marichibi-logo.png" alt="Marichibi Logo" />
+      <span class="site-title">Marichibi</span>
+    </div>
+    <nav>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#">Home</a></li>
+        <li><a href="#characters">Characters</a></li>
+        <li><a href="#book">Book</a></li>
+        <li><a href="#shorts">Shorts</a></li>
+        <li><a href="#game">Game</a></li>
+        <li class="dropdown">
+          <a href="#">Extras ▾</a>
+          <ul class="dropdown-menu">
+            <li><a href="#coloring">Coloring Pages</a></li>
+            <li><a href="#printables">Printables</a></li>
+            <li><a href="#downloads">Downloads</a></li>
+          </ul>
+        </li>
+      </ul>
+      <div class="hamburger" id="hamburger">&#9776;</div>
+    </nav>
+  </header>
 
-  <img src="marichibi-logo.png" alt="Marichibi Logo" class="logo" />
+  <div class="sparkles"></div>
 
-  <h1>Welcome to Marichibi</h1>
+  <img src="./images/marichibi-logo.png" alt="Marichibi Logo" class="logo" />
+
+  <h1>¡Bienvenidos a Marichibi!</h1>
   <p>
-    A magical world where chibi charm meets Chicano corazón.<br>
-    New adventures, cute collectibles, and good vibes coming soon.
+    A magical world where chibi charm meets Chicano corazón.<br />
+    Join Marichibi and her amigos for stories, songs, and adventures.
   </p>
 
-  <button class="btn">Enter the Fiesta</button>
+  <div class="cta-buttons">
+    <a href="#characters" class="btn">Meet the Characters</a>
+    <a href="#book" class="btn">Read the Book</a>
+    <a href="https://youtube.com/shorts/d5OSfDIz7nU" class="btn" target="_blank" rel="noopener">Watch Shorts</a>
+    <a href="#game" class="btn">Play the Game</a>
+    <a href="Marichibi_Coloring_Page.pdf" class="btn" target="_blank" download>🎨 Download Coloring Page</a>
+  </div>
 
-  <footer>© 2025 Marichibi. All rights reserved.</footer>
+  <section class="hero">
+    <div class="hero-content">
+      <h1>✨ Born to be cute.<br>Raised to be legendary. 🎺</h1>
+      <p>Meet Marichibi – the axolotl with corazón, style, and a golden trumpet.</p>
+      <img src="./images/marichibi-hero.png" alt="Marichibi hero" />
+    </div>
+  </section>
+
+  <section id="characters" class="characters-section">
+    <h2>🎶 Meet the Characters</h2>
+    <p>Say hola to the crew!</p>
+    <div class="character-grid">
+      <div class="character-card">
+        <img src="./images/marichibi.PNG" alt="Marichibi" />
+        <h3>Marichibi</h3>
+        <p>Axolotl, leader, trumpet queen.</p>
+      </div>
+      <div class="character-card">
+        <img src="./images/pikin.png" alt="Pikín" />
+        <h3>Pikín</h3>
+        <p>Xolo dog with drums and flow.</p>
+      </div>
+      <div class="character-card">
+        <img src="./images/Lala_XL.png" alt="Lala" />
+        <h3>Lala</h3>
+        <p>Butterfly with an accordion and wings of purple.</p>
+      </div>
+      <div class="character-card">
+        <img src="./images/Nachito.png" alt="Nachito" />
+        <h3>Nachito</h3>
+        <p>Iguana with a booming voice.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="book">
+    <h2>📖 Read the Book</h2>
+    <p>
+      Discover “Marichibi y Los Chibitos” — a bilingual picture book full of music, magic, and comunidad.
+    </p>
+    <a href="storybook.html" class="btn">Read Now</a>
+  </section>
+
+  <a href="https://youtube.com/shorts/d5OSfDIz7nU" target="_blank" rel="noopener" class="video-thumbnail">
+    <img src="./images/marichibi-short-thumb.png" alt="Watch Marichibi Short on YouTube" />
+  </a>
+
+  <section id="game">
+    <h2>🎮 Play the Game</h2>
+    <p>An endless runner set in Marichibi’s colorful barrio is on the way!</p>
+    <img src="game-preview.png" alt="Game Preview" class="game-preview-img" />
+    <p><em>Coming soon...</em></p>
+  </section>
+
+  <section id="coloring">
+    <h2>🎨 Coloring Page</h2>
+    <p>Print, color, and bring Marichibi to life! This free coloring page is perfect for fiestas, classrooms, or just some creative fun at home.</p>
+    <a class="btn" href="Marichibi_Coloring_Page.pdf" target="_blank" download>Download PDF</a>
+  </section>
+<h2>Sign Up for Marichibi News</h2>
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="Password">
+<button onclick="signUp()">Sign Up</button>
+
+  <footer>
+    © 2025 Marichibi. All rights reserved.
+  </footer>
+
   <script src="main.js"></script>
+  <script>
+    const hamburger = document.getElementById("hamburger");
+    const navLinks = document.getElementById("navLinks");
+    hamburger.addEventListener("click", () => {
+      navLinks.classList.toggle("show");
+    });
+  </script>
+  <script>
+  const firebaseConfig = {
+  apiKey: "AIzaSyBQKm4kX-MQCOhik8MMxaqs6piiyND0TTk",
+  authDomain: "marichibi-site.firebaseapp.com",
+  projectId: "marichibi-site",
+  storageBucket: "marichibi-site.firebasestorage.app",
+  messagingSenderId: "118241090201",
+  appId: "1:118241090201:web:4ee5a706f20d36391d3608"
+};
+  // Initialize Firebase
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  function signUp() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    auth.createUserWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        alert("Signup successful!");
+      })
+      .catch((error) => {
+        alert("Error: " + error.message);
+      });
+  }
+</script>
 
 </body>
-</html>
-
 </html>
 
 
