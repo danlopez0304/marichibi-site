@@ -1,0 +1,325 @@
+/* =========================
+   Reset & Base Styles
+   ========================= */
+body {
+  margin: 0;
+  font-family: 'Fredoka', sans-serif;
+  background: #fff8f0;
+  color: #4b2e83;
+  text-align: center;
+  line-height: 1.6;
+  padding: 1rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* =========================
+   Logo
+   ========================= */
+.logo {
+  width: 180px;
+  margin: 1rem auto;
+  display: block;
+}
+
+/* =========================
+   Typography
+   ========================= */
+h1 {
+  font-size: 2.5rem;
+  color: #ab3cfc;
+  margin: 0.5rem 0;
+}
+
+h2 {
+  font-size: 2rem;
+  color: #f29f05;
+  margin-top: 3rem;
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: #ab3cfc;
+  margin: 0.5rem 0 0.2rem;
+}
+
+p {
+  font-size: 1rem;
+  margin: 0.5rem 0 1rem;
+  color: #5c3b7c;
+}
+
+/* =========================
+   Buttons
+   ========================= */
+.btn, .cta-buttons a {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background-color: #ff69b4;
+  color: white;
+  font-weight: 600;
+  border-radius: 2rem;
+  margin: 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+.btn:hover {
+  transform: scale(1.05);
+  background-color: #f946a0;
+}
+
+.cta-buttons {
+  margin: 1.5rem 0;
+}
+
+/* =========================
+   Sections
+   ========================= */
+section {
+  max-width: 900px;
+  margin: 0 auto 2rem auto;
+  padding: 2rem 1rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* =========================
+   Character Grid & Cards
+   ========================= */
+.character-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.character-card {
+  width: 160px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fffbe7;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  text-align: center;
+  font-size: 0.95em;
+}
+
+.character-card:hover {
+  animation: fiesta-bounce 0.6s ease;
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 10px #f2c94c);
+  cursor: pointer;
+}
+
+.character-card img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.character-card h3 {
+  margin: 8px 0 4px 0;
+  font-size: 1.1em;
+}
+
+.character-card p {
+  margin: 0;
+  font-size: 0.95em;
+}
+
+/* =========================
+   Video Thumbnail
+   ========================= */
+.video-thumbnail {
+  display: inline-block;
+  position: relative;
+  max-width: 360px;
+  margin: 1rem auto;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.video-thumbnail img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+  transition: transform 0.2s ease;
+}
+
+.video-thumbnail::after {
+  content: "▶";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 1rem;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* =========================
+   Footer
+   ========================= */
+footer {
+  margin-top: 3rem;
+  padding: 1rem 0;
+  font-size: 0.875rem;
+  color: #999;
+}
+
+/* =========================
+   Sparkles (optional future animation)
+   ========================= */
+.sparkles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0px;
+  z-index: -1;
+}
+
+/* =========================
+   Navbar Styles
+   ========================= */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.logo-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-title img {
+  width: 40px;
+  height: 40px;
+}
+
+.site-title {
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: #ab3cfc;
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-links li a {
+  color: #5c3b7c;
+  font-weight: 500;
+  padding: 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.nav-links li a:hover {
+  color: #f946a0;
+}
+
+.hamburger {
+  display: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #ab3cfc;
+}
+
+/* =========================
+   Dropdown Menu Styles
+   ========================= */
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff8f0;
+  border: 2px solid #fcd1f8;
+  border-radius: 1rem;
+  display: none;
+  flex-direction: column;
+  padding: 0.5rem 0;
+  min-width: 160px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  z-index: 100;
+}
+
+.dropdown-menu li {
+  padding: 0.5rem 1rem;
+  text-align: left;
+}
+
+.dropdown-menu li a {
+  color: #5c3b7c;
+  display: block;
+  transition: color 0.2s ease;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: flex;
+}
+
+/* =========================
+   Responsive Styles
+   ========================= */
+@media (max-width: 768px) {
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 60px;
+    right: 1rem;
+    background: #fff8f0;
+    border: 2px solid #fcd1f8;
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  .nav-links.show {
+    display: flex;
+  }
+
+  .hamburger {
+    display: block;
+  }
+
+  .dropdown-menu {
+    position: static;
+    border: none;
+    box-shadow: none;
+    margin-top: 0.5rem;
+  }
+
+  .dropdown:hover .dropdown-menu {
+    display: flex;
+  }
+}
