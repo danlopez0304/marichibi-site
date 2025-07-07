@@ -16,7 +16,20 @@ body {
   line-height: 1.6;
   padding: 1rem;
 }
-
+.hero img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  display: block;
+  margin: 2rem auto 0;
+}
+.game-preview-img {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  display: block;
+  margin: 1.5rem auto;
+}
 
 img {
   max-width: 100%;
