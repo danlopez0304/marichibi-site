@@ -1,28 +1,22 @@
+// auth.js
+import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { auth, db } from './firebase-config.js';
-import {
-  createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-import {
-  doc,
-  setDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+export async function signUp(email, password) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
 
-export function signUp(email, password) {
-  createUserWithEmailAndPassword(auth, email, password)
-    .then(async (userCredential) => {
-      const user = userCredential.user;
-
-      // Write to Firestore
-      const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
-        email: user.email,
-        createdAt: new Date().toISOString()
-      });
-
-      alert("Signup successful! User added to Firestore.");
-    })
-    .catch((error) => {
-      alert("Error: " + error.message);
+    // Save to Firestore
+    await setDoc(doc(db, "users", user.uid), {
+      email: user.email,
+      createdAt: new Date().toISOString()
     });
+
+    alert("🎉 Sign-up successful!");
+  } catch (error) {
+    console.error("Signup error:", error);
+    alert("⚠️ Error signing up: " + error.message);
+  }
 }
