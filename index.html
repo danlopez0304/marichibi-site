@@ -35,18 +35,11 @@
 
   <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
- <!-- Firebase SDK (compat build) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 
-  <!-- Firebase Initialization -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js"></script>
-  
-  <!-- Custom JS -->
-  <script src="firebase-config.js"></script>
+  <!-- Firebase SDK (compat build) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 </head>
 <body>
   <header class="navbar">
@@ -94,10 +87,9 @@
 
   <section class="hero">
     <div class="hero-content">
-    <h1>✨Born to be cute. <br> Raised to be legendary. 🎺</h1>
-      <p>Meet Marichibi  the axolotl with corazón, style, and a golden trumpet.</p>
-      <img src="./images/donut-hero2.png
-      " alt="Marichibi hero" />
+      <h1>✨ Born to be cute.<br>Raised to be legendary. 🎺</h1>
+      <p>Meet Marichibi – the axolotl with corazón, style, and a golden trumpet.</p>
+      <img src="./images/marichibi-hero.png" alt="Marichibi hero" />
     </div>
   </section>
 
@@ -152,20 +144,18 @@
     <p>Print, color, and bring Marichibi to life! This free coloring page is perfect for fiestas, classrooms, or just some creative fun at home.</p>
     <a class="btn" href="Marichibi_Coloring_Page.pdf" target="_blank" download>Download PDF</a>
   </section>
-<section id="signup">
-  <h2>📬 Sign Up for Marichibi News</h2>
-  <form id="signup-form">
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="password" id="password" placeholder="Password" required />
-    <button type="submit" id="signup-btn">Sign Up</button>
-  </form>
-</section>
-  
+
+  <section id="signup">
+    <h2>📬 Sign Up for Marichibi News</h2>
+    <form id="signup-form">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit" id="signup-btn">Sign Up</button>
+    </form>
+  </section>
 
   <footer>
     © 2025 Marichibi. All rights reserved.
-    
-
   </footer>
 
   <script src="main.js"></script>
@@ -176,20 +166,33 @@
       navLinks.classList.toggle("show");
     });
   </script>
-  <script type="module">
-  import { signUp } from './auth.js';
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "marichibi-site.firebaseapp.com",
+      projectId: "marichibi-site",
+      storageBucket: "marichibi-site.appspot.com",
+      messagingSenderId: "118241090201",
+      appId: "1:118241090201:web:4ee5a706f20d36391d3608"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
 
-  document.getElementById("signup-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-    signUp(email, password);
-  });
-</script>
-
+    // Signup function
+    document.getElementById("signup-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          alert("Signup successful!");
+        })
+        .catch((error) => {
+          alert("Error: " + error.message);
+        });
+    });
+  </script>
 </body>
 </html>
-
-
-
-
