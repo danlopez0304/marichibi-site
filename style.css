@@ -4,12 +4,19 @@
 body {
   margin: 0;
   font-family: 'Fredoka', sans-serif;
-  background: #fff8f0;
+
+  /* ✨ NEW cute background ✨ */
+  background-image: url('./images/bg-cute-donuts.png'); /* adjust path if needed */
+  background-repeat: repeat;          /* tile the pattern */
+  background-size: 280px;             /* scale of each tile – tweak bigger/smaller */
+  background-color: #fff8f0;          /* pastel fallback while it loads */
+
   color: #4b2e83;
   text-align: center;
   line-height: 1.6;
   padding: 1rem;
 }
+
 
 img {
   max-width: 100%;
