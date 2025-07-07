@@ -3,16 +3,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBQKm4kX-MQCOhik8MMxaqs6piiyND0TTk",
+  authDomain: "marichibi-site.firebaseapp.com",
+  projectId: "marichibi-site",
+  storageBucket: "marichibi-site.appspot.com",
+  messagingSenderId: "118241090201",
+  appId: "1:118241090201:web:4ee5a706f20d36391d3608"
 };
+
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 export { auth };
-export default app;
