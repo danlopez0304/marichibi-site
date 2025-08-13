@@ -8,3 +8,56 @@ html, body { height: 100%; margin: 0; background:#fff8f0; font-family: system-ui
 .hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: 10px; background: rgba(255,255,255,.85); padding: 6px 12px; border-radius: 999px; color:#7a5ab5; font-size:14px; }
 #vol { width:140px; accent-color:#ab3cfc; }
 .label { font-size:14px; color:#4b2e83; font-weight:700; }
+/* Prevent page rubber-band on phones during gameplay */
+html, body { overscroll-behavior: none; }
+
+/* On-screen mobile controls */
+.mobile-ctrls {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  pointer-events: none; /* container is transparent to taps */
+  z-index: 1000;
+}
+
+.jump-btn {
+  pointer-events: auto;               /* the button itself is clickable */
+  min-width: 88px; min-height: 88px;  /* comfy thumb target */
+  padding: 14px 22px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 18px;
+  background: #ab3cfc;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  touch-action: none;                 /* avoid double triggers */
+}
+
+/* Hide floating button on big screens */
+@media (min-width: 900px) {
+  #mobileCtrls { display: none !important; }
+}
+/* ... your existing styles ... */
+
+#game-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Keep overlays above the canvas even in fullscreen */
+.hud, .btnbar, .tests, .hint, .mobile-ctrls { 
+  z-index: 1000; 
+}
+
+/* Make sure content scales nicely in fullscreen */
+#game-wrap:fullscreen,      /* standard */
+#game-wrap:-webkit-full-screen { /* Safari */
+  width: 100vw;
+  height: 100vh;
+}
+html, body { height: 100%; }
+#game-wrap { padding-bottom: env(safe-area-inset-bottom); }

@@ -8,12 +8,15 @@ const DEFAULTS = {
   audio:{ initialVolume:0.4, sfxBoost:0.2, storageVolKey:'marichibi_vol', storageMuteKey:'marichibi_mute' },
   assets:{ player:'marichibi.png', midbg:'mid-bg.png', ground:'ground_sidewalk_tile.png', donut:'donut.png', cactus:'cactus.png', bgm:['bgm.ogg','bgm.mp3'], ding:['ding.ogg','ding.mp3'] },
   donut:{ size:64 },
-  cactus:{ w:64, h:80, bodyWScale:0.6, bodyHScale:0.9 },
+  cactus:{ w:64, h:80, bodyWScale:0.6, bodyHScale:0.9, bodyYOffsetScale:0.1 },
   lanes:{ topMinPx:64, topMinFrac:0.18, maxAirAboveFloor:220, floorInset:8 }
 };
 const C = window.CONFIG || DEFAULTS;
 const W = C.WIDTH, H = C.HEIGHT;
 const SCORE_PER_DONUT = 1;
+
+// Detect touch devices
+const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 // ----------------- PHASER BOOT -----------------
 const phaserConfig = {
@@ -83,7 +86,6 @@ function create(){
     world.drawDebug = !world.drawDebug;
     if(!world.debugGraphic) world.createDebugGraphic();
     world.debugGraphic.clear().setVisible(world.drawDebug);
-    // Show debug for all bodies
     hazards.children.iterate(h=>{ if(h && h.body) h.body.debugShowBody = world.drawDebug; });
     player.body.debugShowBody = world.drawDebug;
   });
@@ -129,7 +131,7 @@ function create(){
   // collisions
   this.physics.add.collider(player, floor);
   this.physics.add.overlap(player, donuts,  collect, null, this); // donuts = overlap
-  this.physics.add.collider(player, hazards, hit,   null, this);   // 👈 cactus = collider -> Game Over on touch
+  this.physics.add.collider(player, hazards, hit,   null, this);   // cactus = collider -> Game Over on touch
 
   // sprinkles
   collectEmitter = this.add.particles('sprinkle').createEmitter({
@@ -143,11 +145,40 @@ function create(){
   keyDown  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
   keyS     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
   this.input.keyboard.on('keydown-UP', ()=>jump());
-  this.input.on('pointerdown', p=>{
-    const h=this.scale.gameSize.height;
-    if (p.downY>h*0.65) setDuck(true); else jump();
+
+  // ---- MOBILE & POINTER INPUT ----
+  // Tap anywhere to jump, but if tapping the lower 35% => duck
+  this.input.on('pointerdown', (p) => {
+    const h = this.scale.gameSize.height;
+    if (p.downY > h * 0.65) setDuck(true);
+    else jump();
   });
-  this.input.on('pointerup', ()=>setDuck(false));
+  this.input.on('pointerup', () => setDuck(false));
+
+  // On-screen Jump button (DOM) — shows only on touch devices
+  const ctrls = document.getElementById('mobileCtrls');
+  const jumpBtn = document.getElementById('jumpBtn');
+  if (IS_TOUCH && ctrls && jumpBtn) {
+    ctrls.hidden = false;
+    const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+    jumpBtn.addEventListener('pointerdown', (e) => { stop(e); jump(); }, { passive: false });
+    jumpBtn.addEventListener('click', stop, { passive: false });
+  }
+
+  // Prevent browser gestures (scroll/zoom) on the game canvas
+  const canvas = this.game.canvas;
+  if (canvas) {
+    canvas.style.touchAction = 'none';
+    canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  }
+
+  // Swap hint copy on phones if the element exists
+  const hintEl = document.getElementById('jump-hint');
+  if (hintEl) {
+    hintEl.textContent = IS_TOUCH
+      ? 'Tap to jump! Collect donuts, avoid cacti!'
+      : '↑ = Jump • Collect donuts, avoid cacti!';
+  }
 
   // audio
   const savedVol = parseFloat(localStorage.getItem(C.audio.storageVolKey) ?? C.audio.initialVolume);
@@ -169,8 +200,20 @@ function create(){
     document.getElementById('btn-tests')?.addEventListener('click', runTests);
     document.getElementById('btn-full')?.addEventListener('click', ()=>{
       const btn=document.getElementById('btn-full');
-      if(!this.scale.isFullscreen){ this.scale.startFullscreen(); if(btn) btn.innerText='Exit Fullscreen'; }
-      else { this.scale.stopFullscreen(); if(btn) btn.innerText='Fullscreen'; }
+
+      // NEW: fullscreen the wrapper so HUD stays visible
+      const wrap = document.getElementById('game-wrap');
+      if (wrap && this.scale.fullscreenTarget !== wrap) {
+        this.scale.fullscreenTarget = wrap;
+      }
+
+      if(!this.scale.isFullscreen){
+        this.scale.startFullscreen();
+        if(btn) btn.innerText='Exit Fullscreen';
+      } else {
+        this.scale.stopFullscreen();
+        if(btn) btn.innerText='Fullscreen';
+      }
     });
     document.getElementById('btn-mute')?.addEventListener('click', ()=>{
       const m=!this.sound.mute; this.sound.mute=m; music?.setMute(m); sfxDing?.setMute(m);
@@ -209,13 +252,9 @@ function update(_t, dt){
   if (mid2.x <= -W) mid2.x = mid1.x + W;
   ground.tilePositionX += (-C.speed * dt)/1000;
 
-  // Debug: log all hazards and their physics bodies every frame
-  const hazardList = [];
   hazards.children.iterate(h=>{
-    if(h) hazardList.push({ x: h.x, y: h.y, body: h.body, active: h.active });
     if(h && h.x < -80 && !Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), h.getBounds())) h.destroy();
   });
-  if (hazardList.length) console.log('Hazards:', hazardList);
   donuts.children.iterate(d=>{ if(d && d.x < -80) d.destroy(); });
 }
 
@@ -240,6 +279,8 @@ function jump(){
   if (over || paused || duck) return;
   const factor = sceneRef.scale.gameSize.height / C.HEIGHT;
   player.setVelocityY(-1100 * factor);
+  // optional haptic for mobile
+  if (IS_TOUCH) navigator.vibrate?.(15);
 }
 
 function laneYFor(h){
@@ -288,22 +329,32 @@ function spawnDonut(){
 }
 
 function spawnCactus(){
-  const y = cactusLaneY(); // now uses low/mid/top lanes
+  const y = cactusLaneY();
   const c = sceneRef.physics.add.sprite(W + 50, y, 'cactus').setDepth(2);
   hazards.add(c);
 
+  // draw sprite
   c.setDisplaySize(C.cactus.w, C.cactus.h);
-  // trunk collider from DISPLAY size, centered + immovable
+
+  // --- Mobile-friendly hitbox preset ---
+  // narrower + shorter + nudged down a bit
+  const PRESET = { wScale: 0.50, hScale: 0.65, xOffsetScale: 0.00, yOffsetScale: 0.12 };
+
   const dw = c.displayWidth, dh = c.displayHeight;
-  const bw = Math.floor(dw * C.cactus.bodyWScale);
-  const bh = Math.floor(dh * C.cactus.bodyHScale);
+  const bw = Math.floor(dw * PRESET.wScale);
+  const bh = Math.floor(dh * PRESET.hScale);
+  const xBias = Math.floor(dw * PRESET.xOffsetScale);
+  const yBias = Math.floor(dh * PRESET.yOffsetScale);
+
   c.body.setSize(bw, bh);
-  c.body.setOffset(Math.floor((dw - bw)/2), Math.floor((dh - bh)/2));
+  c.body.setOffset(Math.floor((dw - bw)/2) + xBias, Math.floor((dh - bh)/2) + yBias);
+
   c.setImmovable(true);
   c.body.enable = true;
   c.body.setAllowGravity(false);
   c.setVelocityX(C.speed);
 }
+
 
 // ----------------- CALLBACKS -----------------
 function collect(_p, donut){
