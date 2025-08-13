@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marichibi’s Fiesta Run</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-root"></div>
+  <div class="hud">Score: <span id="score">0</span></div>
+  <div class="btnbar">
+    <button class="btn" id="btn-pause">Pause</button>
+    <button class="btn alt" id="btn-restart">Restart</button>
+    
+    <button class="btn" id="btn-full">Fullscreen</button>
+    <button class="btn" id="btn-mute">Mute</button>
+    <label for="vol" class="label">Volume</label>
+    <input id="vol" type="range" min="0" max="1" step="0.01" value="0.4" title="Adjust game volume">
+  </div>
+  <div class="tests">Pass: <span id="test-pass">0</span>/<span id="test-total">0</span></div>
+  <div class="hint"> ↑ = Jump • Collect donuts, avoid cacti!</div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+  <script defer src="config.js"></script>
+  <script defer src="game.js"></script>
+</body>
+</html>
+
+
