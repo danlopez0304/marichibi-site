@@ -198,23 +198,68 @@ function create(){
     document.getElementById('btn-pause')?.addEventListener('click', onTogglePause);
     document.getElementById('btn-restart')?.addEventListener('click', restart);
     document.getElementById('btn-tests')?.addEventListener('click', runTests);
-    document.getElementById('btn-full')?.addEventListener('click', ()=>{
-      const btn=document.getElementById('btn-full');
 
-      // NEW: fullscreen the wrapper so HUD stays visible
+    // ---------- Fullscreen button with mobile fallback ----------
+    const btnFull = document.getElementById('btn-full');
+    if (btnFull) {
+      let fakeFS = false; // track CSS fallback state
       const wrap = document.getElementById('game-wrap');
-      if (wrap && this.scale.fullscreenTarget !== wrap) {
-        this.scale.fullscreenTarget = wrap;
-      }
+      const isNativeFS = () =>
+        !!(document.fullscreenElement || document.webkitFullscreenElement);
 
-      if(!this.scale.isFullscreen){
-        this.scale.startFullscreen();
-        if(btn) btn.innerText='Exit Fullscreen';
-      } else {
-        this.scale.stopFullscreen();
-        if(btn) btn.innerText='Fullscreen';
-      }
-    });
+      const enterFakeFS = () => {
+        document.body.classList.add('fs-lock');
+        wrap?.classList.add('fake-fs');
+        fakeFS = true;
+        this.scale.refresh(); // let Phaser recompute size
+      };
+
+      const exitFakeFS = () => {
+        document.body.classList.remove('fs-lock');
+        wrap?.classList.remove('fake-fs');
+        fakeFS = false;
+        this.scale.refresh();
+      };
+
+      const setFSLabel = () => {
+        btnFull.innerText = (this.scale.isFullscreen || isNativeFS() || fakeFS)
+          ? 'Exit Fullscreen' : 'Fullscreen';
+      };
+
+      btnFull.addEventListener('click', () => {
+        // Always target the wrapper so HUD stays visible
+        if (wrap && this.scale.fullscreenTarget !== wrap) {
+          this.scale.fullscreenTarget = wrap;
+        }
+
+        // If already in fullscreen (native or fake), exit
+        if (this.scale.isFullscreen || isNativeFS() || fakeFS) {
+          this.scale.stopFullscreen(); // no-op if not native
+          exitFakeFS();                // clears fallback if used
+          setFSLabel();
+          return;
+        }
+
+        // Try native fullscreen first
+        try {
+          this.scale.startFullscreen();
+          // If it didn't stick (common on mobile), use fallback
+          setTimeout(() => {
+            if (!this.scale.isFullscreen && !isNativeFS()) enterFakeFS();
+            setFSLabel();
+          }, 120);
+        } catch (_) {
+          // Some browsers throw — fallback
+          enterFakeFS();
+          setFSLabel();
+        }
+      });
+
+      // Keep label synced if user exits native FS via system UI
+      document.addEventListener('fullscreenchange', setFSLabel);
+      document.addEventListener('webkitfullscreenchange', setFSLabel);
+    }
+
     document.getElementById('btn-mute')?.addEventListener('click', ()=>{
       const m=!this.sound.mute; this.sound.mute=m; music?.setMute(m); sfxDing?.setMute(m);
       const btn=document.getElementById('btn-mute'); if(btn) btn.innerText=m?'Unmute':'Mute';
