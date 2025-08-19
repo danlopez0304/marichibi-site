@@ -1,30 +1,73 @@
-/* Base layout */
+/* Page & viewport */
 html, body {
-  height: 100%;
   margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: #fff8f0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  overscroll-behavior: none; /* prevent rubber-band during play */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+  -webkit-text-size-adjust: 100%; /* prevent iOS auto-zooming text */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* disable iOS press menu */
 }
 
-#game-root { width: 100%; height: 100%; }
+/* Fill the real mobile viewport */
+#game-root {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;     /* modern mobile browsers */
+  min-height: 100svh; /* iOS Safari safe viewport */
+  touch-action: none; /* avoid gestures stealing input */
 
-/* HUD & controls */
+  /* Letterbox background image (outside the canvas only) */
+  background: #fff8f0 center center / cover no-repeat;
+  background-image:
+    image-set(
+      url("assets/mid-bg-mobile.jpg") 1x,
+      url("assets/mid-bg-mobile.jpg") 2x
+    );
+}
+
+/* Let Phaser control canvas size.
+   IMPORTANT: No CSS transforms or manual scaling here. */
+#game-root > canvas {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: block;
+  image-rendering: auto; /* use 'pixelated' if you want chunky pixels */
+}
+
+/* Safe-area padding for overlays (not the canvas) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .hud, .btnbar, .hint {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0px);
+  }
+}
+
+/* HUD */
 .hud {
   position: fixed;
   left: 10px;
   top: 10px;
-  background: rgba(255,255,255,.8);
+  z-index: 20;
+  background: rgba(255,255,255,.85);
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #4b2e83;
   font-weight: 700;
+  font-size: clamp(12px, 1.8vh, 16px);
 }
 
+/* Controls */
 .btnbar {
   position: fixed;
   right: 10px;
   top: 10px;
+  z-index: 20;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -35,101 +78,39 @@ html, body {
   cursor: pointer;
   border: 0;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ab3cfc;
   color: #fff;
   font-weight: 700;
+  font-size: clamp(12px, 1.8vh, 16px);
 }
 
 .btn.alt { background: #f29f05; }
 
-.tests {
-  position: fixed;
-  right: 10px;
-  top: 54px;
-  background: rgba(255,255,255,.9);
-  padding: 6px 10px;
-  border-radius: 10px;
+.label-vol {
+  margin-left: 8px;
+  font-weight: 600;
   color: #4b2e83;
+  font-size: clamp(12px, 1.8vh, 16px);
 }
 
+#vol { width: min(40vw, 140px); }
+
+/* Hint */
 .hint {
   position: fixed;
   left: 50%;
-  transform: translateX(-50%);
   bottom: 10px;
-  background: rgba(255,255,255,.85);
-  padding: 6px 12px;
-  border-radius: 999px;
-  color: #7a5ab5;
-  font-size: 14px;
-}
-
-#vol { width: 140px; accent-color: #ab3cfc; }
-.label { font-size: 14px; color: #4b2e83; font-weight: 700; }
-
-/* Mobile touch controls */
-.mobile-ctrls {
-  position: fixed;
-  left: 0; right: 0;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
-  pointer-events: none;   /* container transparent to taps */
-  z-index: 1000;
-}
-
-.jump-btn {
-  pointer-events: auto;   /* the button itself is clickable */
-  min-width: 88px; min-height: 88px;  /* comfy thumb target */
-  padding: 14px 22px;
-  border: 0;
-  border-radius: 999px;
-  font-weight: 800;
-  font-size: 18px;
-  background: #ab3cfc;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(0,0,0,.5);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  touch-action: none;     /* avoid double triggers */
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: clamp(12px, 1.8vh, 16px);
+  text-align: center;
 }
 
-/* Hide floating button on big screens */
-@media (min-width: 900px) {
-  #mobileCtrls { display: none !important; }
-}
 
-/* ===== Game wrapper & overlays ===== */
-#game-wrap {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding-bottom: env(safe-area-inset-bottom);
-}
 
-/* Keep overlays above the canvas, incl. fullscreen */
-.hud, .btnbar, .tests, .hint, .mobile-ctrls {
-  z-index: 1000;
-}
-
-/* Native fullscreen sizing (fallback to 100vh, prefer 100dvh) */
-#game-wrap:fullscreen,
-#game-wrap:-webkit-full-screen {
-  width: 100vw;
-  height: 100vh; /* fallback */
-}
-@supports (height: 100dvh) {
-  #game-wrap:fullscreen,
-  #game-wrap:-webkit-full-screen {
-    height: 100dvh; /* better on mobile address bars */
-  }
-}
-
-/* Fallback "fake fullscreen" (used by JS when native FS isn't allowed) */
-body.fs-lock { overflow: hidden; }
-#game-wrap.fake-fs {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100dvh;
-}
 

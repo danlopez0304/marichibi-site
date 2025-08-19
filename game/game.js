@@ -1,462 +1,327 @@
-// prevent page scroll on Space
-window.addEventListener('keydown', e => { if (e.code === 'Space') e.preventDefault(); }, { passive: false });
+(() => {
+  const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
 
-// ----------------- CONFIG -----------------
-const DEFAULTS = {
-  WIDTH: 960, HEIGHT: 540, gravityY: 1700, speed: -300,
-  spawn:{ donutMs:1000, cactusMs:1300 },
-  audio:{ initialVolume:0.4, sfxBoost:0.2, storageVolKey:'marichibi_vol', storageMuteKey:'marichibi_mute' },
-  assets:{ player:'marichibi.png', midbg:'mid-bg.png', ground:'ground_sidewalk_tile.png', donut:'donut.png', cactus:'cactus.png', bgm:['bgm.ogg','bgm.mp3'], ding:['ding.ogg','ding.mp3'] },
-  donut:{ size:64 },
-  cactus:{ w:64, h:80, bodyWScale:0.6, bodyHScale:0.9, bodyYOffsetScale:0.1 },
-  lanes:{ topMinPx:64, topMinFrac:0.18, maxAirAboveFloor:220, floorInset:8 }
-};
-const C = window.CONFIG || DEFAULTS;
-const W = C.WIDTH, H = C.HEIGHT;
-const SCORE_PER_DONUT = 1;
+  // --- Create Phaser with responsive scaling (no CSS transforms) ---
+  const phaserConfig = {
+    type: Phaser.AUTO,
+    parent: CONFIG.ui.rootId,
+    width: W,                   // logical world size
+    height: H,
+    backgroundColor: CONFIG.colors.background,
+    scale: {
+      mode: Phaser.Scale.FIT,   // <-- key change: let Phaser fit to parent
+      autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    physics: {
+      default: 'arcade',
+      arcade: { gravity: { y: CONFIG.physics.gravityYBase }, debug: false }
+    },
+    scene: { preload, create, update }
+  };
 
-// Detect touch devices
-const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const game = new Phaser.Game(phaserConfig);
 
-// ----------------- PHASER BOOT -----------------
-const phaserConfig = {
-  type: Phaser.AUTO,
-  parent: 'game-root',
-  width: W, height: H,
-  backgroundColor: '#fff8f0',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  physics: { default:'arcade', arcade:{ gravity:{ y:C.gravityY }, debug:false }},
-  scene: { preload, create, update, shutdown:onShutdown, destroy:onShutdown }
-};
-// guard against multiple games
-if (window.__MARICHIBI_GAME__) { try { window.__MARICHIBI_GAME__.destroy(true); } catch(_){} }
-window.__MARICHIBI_GAME__ = new Phaser.Game(phaserConfig);
+  // --- State ---
+  let sceneRef, player, ground, floor, obstacles, cacti, space, music, sfxDing,
+      score = 0, best = 0, lastSpawn = 0, spawnMs = CONFIG.gameplay.initialSpawnMs,
+      speed = CONFIG.gameplay.speedX, running = true, over = false,
+      duck = false, keyDown = null, keyS = null, collectEmitter = null, donutLoaded = false,
+      gameOverText = null, startAtMs = 0, fitBg = null;
 
-// ----------------- STATE -----------------
-let sceneRef, mid1, mid2, ground, floor, player, donuts, hazards, collectEmitter;
-let keySpace, keyDown, keyS, keyDebug;
-let music, sfxDing;
-let score=0, paused=false, over=false, duck=false;
-let donutTimer=null, cactusTimer=null, donutLoaded=false;
-
-// UI refs
-const elScore = document.getElementById('score');
-const elVol   = document.getElementById('vol');
-const elPass  = document.getElementById('test-pass');
-const elTotal = document.getElementById('test-total');
-
-// ----------------- HELPERS -----------------
-function makeTexture(s,key,draw,w=64,h=64){ const g=s.make.graphics({x:0,y:0,add:false}); draw(g); g.generateTexture(key,w,h); g.destroy(); }
-function mkTexIfMissing(s,key,draw,w,h){ if(!s.textures.exists(key)) makeTexture(s,key,draw,w,h); }
-function playDingFallback(freq=1500,vol=0.24,dur=0.12){
-  try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain();
-    o.type='sine'; o.frequency.value=freq; g.gain.setValueAtTime(0.0001,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(vol,ctx.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);
-    o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur+0.02);
-  }catch(_){}
-}
-function floorTopY(){ return floor.y - floor.height/2; }
-function groundYFor(h){ return floorTopY() - (h/2) + 4; }
-function setScore(v){ elScore && (elScore.innerText = String(v)); }
-
-// ----------------- SCENE -----------------
-function preload(){
-  this.load.image('marichibi', C.assets.player);
-  this.load.image('midbg', C.assets.midbg);
-  this.load.image('ground', C.assets.ground);
-
-  this.load.on('loaderror', f => { if (f.key === 'donut') donutLoaded = false; });
-  this.load.on('filecomplete-image-donut', ()=>{ donutLoaded = true; });
-  this.load.image('donut', C.assets.donut);
-  this.load.image('cactus', C.assets.cactus);
-
-  makeTexture(this,'sprinkle',g=>{ g.fillStyle(0xffffff,1); g.fillRect(0,0,2,6); },2,6);
-
-  if (C.assets.bgm)  this.load.audio('bgm', C.assets.bgm);
-  if (C.assets.ding) this.load.audio('ding', C.assets.ding);
-}
-
-function create(){
-  sceneRef=this;
-
-  // toggle physics debug with "D"
-  keyDebug = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-  keyDebug.on('down', ()=>{
-    const world=this.physics.world;
-    world.drawDebug = !world.drawDebug;
-    if(!world.debugGraphic) world.createDebugGraphic();
-    world.debugGraphic.clear().setVisible(world.drawDebug);
-    hazards.children.iterate(h=>{ if(h && h.body) h.body.debugShowBody = world.drawDebug; });
-    player.body.debugShowBody = world.drawDebug;
-  });
-
-  // fallbacks if images missing
-  if (!donutLoaded){
-    makeTexture(this,'donut',g=>{
-      g.fillStyle(0xf2c94c,1); g.fillCircle(32,32,24);
-      g.fillStyle(0xff7ab6,1); g.fillCircle(32,32,20);
-      g.fillStyle(0xfff8f0,1); g.fillCircle(32,32,10);
-    },64,64);
-  }
-  mkTexIfMissing(this,'midbg', g=>{
-    g.fillStyle(0xfffbf3,1); g.fillRect(0,0,960,540);
-    g.fillStyle(0xe9d8ff,1); for(let x=0;x<960;x+=120) g.fillCircle(x+60,400,120);
-  },960,540);
-  mkTexIfMissing(this,'ground', g=>{
-    g.fillStyle(0xf7e7c6,1); g.fillRect(0,0,256,64);
-    for(let x=8;x<256;x+=32) g.fillRect(x,44,16,6);
-  },256,64);
-
-  // background + ground
-  mid1=this.add.image(0,0,'midbg').setOrigin(0,0).setDepth(0);
-  mid2=this.add.image(W,0,'midbg').setOrigin(0,0).setDepth(0);
-  mid1.setDisplaySize(W,H); mid2.setDisplaySize(W,H);
-  ground=this.add.tileSprite(0, H-64, W*2, 64, 'ground').setOrigin(0,0).setDepth(1);
-
-  // floor collider
-  const FLOOR_Y = H - 77;
-  floor=this.add.rectangle(W/2, FLOOR_Y+12, W*2, 24, 0, 0);
-  this.physics.add.existing(floor, true);
-
-  // player (slightly bigger hitbox)
-  player=this.physics.add.sprite(170, FLOOR_Y-58, 'marichibi')
-    .setDisplaySize(96,96).setCollideWorldBounds(true).setDepth(2);
-  player.body.setSize(68,80).setOffset(14,8);
-  player.body.enable = true;
-
-  // groups
-  donuts  = this.physics.add.group({ classType: Phaser.Physics.Arcade.Image, allowGravity:false });
-  hazards = this.physics.add.group({ classType: Phaser.Physics.Arcade.Sprite, allowGravity:false });
-
-  // collisions
-  this.physics.add.collider(player, floor);
-  this.physics.add.overlap(player, donuts,  collect, null, this); // donuts = overlap
-  this.physics.add.collider(player, hazards, hit,   null, this);   // cactus = collider -> Game Over on touch
-
-  // sprinkles
-  collectEmitter = this.add.particles('sprinkle').createEmitter({
-    on:false, speed:{min:120,max:320}, angle:{min:0,max:360}, gravityY:700,
-    lifespan:{min:450,max:900}, rotate:{min:0,max:360}, scale:{start:1,end:0.2},
-    tint:[0xff7ab6,0xf2c94c,0x7bdff2,0xab3cfc,0xfff8f0], quantity:1
-  });
-
-  // input
-  keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-  keyDown  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-  keyS     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-  this.input.keyboard.on('keydown-UP', ()=>jump());
-
-  // ---- MOBILE & POINTER INPUT ----
-  // Tap anywhere to jump, but if tapping the lower 35% => duck
-  this.input.on('pointerdown', (p) => {
-    const h = this.scale.gameSize.height;
-    if (p.downY > h * 0.65) setDuck(true);
-    else jump();
-  });
-  this.input.on('pointerup', () => setDuck(false));
-
-  // On-screen Jump button (DOM) — shows only on touch devices
-  const ctrls = document.getElementById('mobileCtrls');
-  const jumpBtn = document.getElementById('jumpBtn');
-  if (IS_TOUCH && ctrls && jumpBtn) {
-    ctrls.hidden = false;
-    const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
-    jumpBtn.addEventListener('pointerdown', (e) => { stop(e); jump(); }, { passive: false });
-    jumpBtn.addEventListener('click', stop, { passive: false });
+  // --- Helpers ---
+  function makeTexture(s, key, draw, w = 64, h = 64) {
+    const g = s.make.graphics({ x: 0, y: 0, add: false });
+    draw(g); g.generateTexture(key, w, h); g.destroy();
   }
 
-  // Prevent browser gestures (scroll/zoom) on the game canvas
-  const canvas = this.game.canvas;
-  if (canvas) {
-    canvas.style.touchAction = 'none';
-    canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  // --- Scene methods ---
+  function preload() {
+    // Backgrounds (any that exist)
+    this.load.image('midbg_png', CONFIG.assets.midbg_png);
+    this.load.image('midbg_jpg', CONFIG.assets.midbg_jpg);
+    this.load.image('midbg_shadow_jpg', CONFIG.assets.midbg_shadow_jpg);
+
+    this.load.on('loaderror', (file) => console.warn('Load error:', file?.src || file));
+
+    // Core assets
+    this.load.image('marichibi', CONFIG.assets.player);
+    this.load.image('ground', CONFIG.assets.ground);
+    this.load.image('cactus', CONFIG.assets.cactus);
+
+    // Donut may fail to load; if so we generate a fallback
+    this.load.on('filecomplete-image-donut', () => { donutLoaded = true; });
+    this.load.image('donut', CONFIG.assets.donut);
+
+    makeTexture(this, 'spark', g => { g.fillStyle(0xffffff, 1); g.fillCircle(4, 4, 4); }, 8, 8);
+
+    this.load.audio('bgm', CONFIG.assets.bgm);
+    this.load.audio('ding', CONFIG.assets.ding);
+
+    // Fallback if host is case-sensitive and player is .png not .PNG
+    this.load.on('loaderror', (file) => {
+      if (file?.key === 'marichibi' && CONFIG.assets.player.endsWith('.PNG')) {
+        const alt = CONFIG.assets.player.replace('.PNG', '.png');
+        if (!this.textures.exists('marichibi')) this.load.image('marichibi', alt);
+      }
+    });
   }
 
-  // Swap hint copy on phones if the element exists
-  const hintEl = document.getElementById('jump-hint');
-  if (hintEl) {
-    hintEl.textContent = IS_TOUCH
-      ? 'Tap to jump! Collect donuts, avoid cacti!'
-      : '↑ = Jump • Collect donuts, avoid cacti!';
-  }
+  function create() {
+    sceneRef = this;
 
-  // audio
-  const savedVol = parseFloat(localStorage.getItem(C.audio.storageVolKey) ?? C.audio.initialVolume);
-  elVol && (elVol.value = String(savedVol));
-  const savedMute = localStorage.getItem(C.audio.storageMuteKey) === '1';
+    // Background (fit to logical 960×540; Phaser will scale canvas to device)
+    const bgKey =
+      (this.textures.exists('midbg_png') && 'midbg_png') ||
+      (this.textures.exists('midbg_jpg') && 'midbg_jpg') ||
+      (this.textures.exists('midbg_shadow_jpg') && 'midbg_shadow_jpg');
 
-  try { music?.stop(); music?.destroy(); } catch(_){}
-  if (this.cache.audio.exists('bgm'))  music  = this.sound.add('bgm', { loop:true, volume:savedVol });
-  if (this.cache.audio.exists('ding')) sfxDing = this.sound.add('ding', { volume: Math.min(1, savedVol + C.audio.sfxBoost) });
-
-  this.sound.mute = savedMute; music?.setMute(savedMute); sfxDing?.setMute(savedMute);
-  const startMusic = () => { if (music && !music.isPlaying) music.play(); };
-  if (this.sound.locked) this.sound.once('unlocked', startMusic); else startMusic();
-
-  // buttons (bind once per page)
-  if (!window.__MARICHIBI_UI_BOUND__) {
-    document.getElementById('btn-pause')?.addEventListener('click', onTogglePause);
-    document.getElementById('btn-restart')?.addEventListener('click', restart);
-    document.getElementById('btn-tests')?.addEventListener('click', runTests);
-
-    // ---------- Fullscreen button with mobile fallback ----------
-    const btnFull = document.getElementById('btn-full');
-    if (btnFull) {
-      let fakeFS = false; // track CSS fallback state
-      const wrap = document.getElementById('game-wrap');
-      const isNativeFS = () =>
-        !!(document.fullscreenElement || document.webkitFullscreenElement);
-
-      const enterFakeFS = () => {
-        document.body.classList.add('fs-lock');
-        wrap?.classList.add('fake-fs');
-        fakeFS = true;
-        this.scale.refresh(); // let Phaser recompute size
-      };
-
-      const exitFakeFS = () => {
-        document.body.classList.remove('fs-lock');
-        wrap?.classList.remove('fake-fs');
-        fakeFS = false;
-        this.scale.refresh();
-      };
-
-      const setFSLabel = () => {
-        btnFull.innerText = (this.scale.isFullscreen || isNativeFS() || fakeFS)
-          ? 'Exit Fullscreen' : 'Fullscreen';
-      };
-
-      btnFull.addEventListener('click', () => {
-        // Always target the wrapper so HUD stays visible
-        if (wrap && this.scale.fullscreenTarget !== wrap) {
-          this.scale.fullscreenTarget = wrap;
-        }
-
-        // If already in fullscreen (native or fake), exit
-        if (this.scale.isFullscreen || isNativeFS() || fakeFS) {
-          this.scale.stopFullscreen(); // no-op if not native
-          exitFakeFS();                // clears fallback if used
-          setFSLabel();
-          return;
-        }
-
-        // Try native fullscreen first
-        try {
-          this.scale.startFullscreen();
-          // If it didn't stick (common on mobile), use fallback
-          setTimeout(() => {
-            if (!this.scale.isFullscreen && !isNativeFS()) enterFakeFS();
-            setFSLabel();
-          }, 120);
-        } catch (_) {
-          // Some browsers throw — fallback
-          enterFakeFS();
-          setFSLabel();
-        }
-      });
-
-      // Keep label synced if user exits native FS via system UI
-      document.addEventListener('fullscreenchange', setFSLabel);
-      document.addEventListener('webkitfullscreenchange', setFSLabel);
+    if (!donutLoaded) {
+      makeTexture(this, 'donut', g => {
+        g.fillStyle(0xf2c94c, 1); g.fillCircle(32, 32, 24);
+        g.fillStyle(0xff7ab6, 1); g.fillCircle(32, 32, 20);
+        g.fillStyle(0xfff8f0, 1); g.fillCircle(32, 32, 10);
+      }, 64, 64);
     }
 
-    document.getElementById('btn-mute')?.addEventListener('click', ()=>{
-      const m=!this.sound.mute; this.sound.mute=m; music?.setMute(m); sfxDing?.setMute(m);
-      const btn=document.getElementById('btn-mute'); if(btn) btn.innerText=m?'Unmute':'Mute';
-      localStorage.setItem(C.audio.storageMuteKey, m?'1':'0');
+    if (!bgKey) {
+      console.warn('No background found — drawing a fallback color.');
+      this.add.rectangle(W/2, H/2, W, H, 0xfff8f0).setDepth(-10);
+    } else {
+      const bg = this.add.image(W/2, H, bgKey).setOrigin(0.5, 1).setScrollFactor(0).setDepth(0);
+      const camW = W, camH = H;
+      const fit = () => {
+        const scaleX = camW / bg.width;
+        const scaleY = camH / bg.height;
+        bg.setScale(Math.max(scaleX, scaleY)).setPosition(W/2, H);
+      };
+      fitBg = fit; fit();
+    }
+
+    // Ground visuals (scrolling)
+    const GROUND_H = 64;
+    ground = this.add.tileSprite(0, H - GROUND_H, W * 2, GROUND_H, 'ground').setOrigin(0, 0).setDepth(1);
+
+    // Invisible floor collider
+    const FLOOR_Y = H - 77;
+    const FLOOR_THICKNESS = 24;
+    floor = this.add.rectangle(W / 2, FLOOR_Y + FLOOR_THICKNESS / 2, W * 2, FLOOR_THICKNESS, 0x000000, 0);
+    this.physics.add.existing(floor, true);
+
+    // Player
+    player = this.physics.add.sprite(170, FLOOR_Y - 58, 'marichibi')
+      .setDisplaySize(96, 96).setCollideWorldBounds(true).setDepth(2);
+    player.body.setSize(52, 62).setOffset(22, 20);
+
+    // Groups
+    obstacles = this.physics.add.group();  // donuts (collect)
+    cacti = this.physics.add.group();      // cactus (hazard)
+
+    // Collisions / overlaps
+    this.physics.add.collider(player, floor);
+    this.physics.add.overlap(player, obstacles, collect, null, this);
+    this.physics.add.overlap(player, cacti, crash, null, this);
+
+    // Tick once to settle bodies
+    this.physics.world.step(16);
+
+    // Particles for collect
+    collectEmitter = this.add.particles('spark').createEmitter({
+      on: false, speed: { min: -200, max: 200 }, lifespan: 420, scale: { start: 0.9, end: 0 }, blendMode: 'ADD'
     });
-    elVol?.addEventListener('input', e=>{
-      const v=parseFloat(e.target.value)||0; music?.setVolume(v); sfxDing?.setVolume(Math.min(1, v + C.audio.sfxBoost));
-      localStorage.setItem(C.audio.storageVolKey, v.toString());
+
+    // Input
+    space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    keyDown = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+    keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.input.keyboard.on('keydown-UP', () => jump());
+
+    // Tap bottom to duck, else jump — works with FIT scaling
+    this.input.on('pointerdown', p => {
+      const h = H; // logical height
+      if (p.downY > (h * 0.65)) { setDuck(true); } else { jump(); }
     });
-    window.__MARICHIBI_UI_BOUND__ = true;
+    this.input.on('pointerup', () => setDuck(false));
+
+    // UI elements
+    const ids = CONFIG.ui.ids;
+    const pauseBtn = document.getElementById(ids.pause);
+    const fullBtn  = document.getElementById(ids.full);
+    const muteBtn  = document.getElementById(ids.mute);
+    const vol      = document.getElementById(ids.vol);
+
+    // High score load & show
+    best = parseInt(localStorage.getItem(CONFIG.storage.bestKey) || '0', 10);
+    const bestEl = document.getElementById('best'); if (bestEl) bestEl.innerText = best;
+
+    // Audio setup & persistence
+    const savedVol  = localStorage.getItem(CONFIG.storage.volKey);
+    const savedMute = localStorage.getItem(CONFIG.storage.muteKey);
+    if (savedVol !== null) vol.value = savedVol;
+
+    if (!music) music = this.sound.add('bgm', { loop: true, volume: parseFloat(vol.value) });
+    if (savedMute === '1') music.setMute(true);
+    muteBtn.innerText = music.mute ? 'Unmute' : 'Mute';
+    try { sfxDing = this.sound.add('ding', { volume: 0.9 }); } catch (e) { sfxDing = null; }
+
+    const startAudioOnce = () => {
+      try { if (sceneRef.sound.context && sceneRef.sound.context.state !== 'running') sceneRef.sound.context.resume(); } catch (e) {}
+      try { if (music && !music.isPlaying) music.play(); } catch (e) {}
+    };
+    if (this.sound.locked) this.sound.once('unlocked', startAudioOnce);
+    else { this.input.once('pointerdown', startAudioOnce); this.input.keyboard.once('keydown', startAudioOnce); }
+
+    // Buttons
+    pauseBtn.onclick = () => toggle();
+    document.getElementById(ids.restart).onclick = () => restart();
+    fullBtn.onclick = async () => {
+      try {
+        if (!document.fullscreenElement) {
+          if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+          fullBtn.innerText = 'Exit Fullscreen';
+        } else {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          fullBtn.innerText = 'Fullscreen';
+        }
+        game.scale.refresh(); // nudge scaler after fullscreen change
+      } catch (e) { console.warn('Fullscreen not allowed:', e); }
+    };
+    muteBtn.onclick = () => {
+      const m = !music.mute; music.setMute(m);
+      muteBtn.innerText = m ? 'Unmute' : 'Mute';
+      localStorage.setItem(CONFIG.storage.muteKey, m ? '1' : '0');
+    };
+    vol.oninput = e => {
+      const v = parseFloat(e.target.value); if (music) music.setVolume(v);
+      localStorage.setItem(CONFIG.storage.volKey, v.toString());
+    };
+
+    // Refresh scale on orientation/resize (mobile address bar changes, etc.)
+    const bump = () => game.scale.refresh();
+    window.addEventListener('resize', bump, { passive: true });
+    window.addEventListener('orientationchange', bump, { passive: true });
   }
 
-  // gravity scaling
-  const hNow=this.scale.gameSize.height;
-  this.physics.world.gravity.y = C.gravityY * (hNow / C.HEIGHT);
+  function update(t, dt) {
+    // Difficulty scaling
+    if (running && !over) {
+      const secs = Math.max(0, (t - startAtMs) / 1000);
+      const d = CONFIG.gameplay.difficulty;
+      speed = Math.max(d.maxSpeedX, CONFIG.gameplay.speedX - d.speedGainPerSec * secs);
+      spawnMs = Math.max(d.minSpawnMs, CONFIG.gameplay.initialSpawnMs - d.spawnReducePerSec * secs);
+    }
 
-  // init
-  score=0; setScore(score); paused=false; over=false;
+    setDuck(keyDown.isDown || keyS.isDown);
 
-  // timed spawns
-  donutTimer?.remove(); cactusTimer?.remove();
-  donutTimer = this.time.addEvent({ delay:C.spawn.donutMs,  loop:true, callback:spawnDonut,  callbackScope:this });
-  cactusTimer= this.time.addEvent({ delay:C.spawn.cactusMs, loop:true, callback:spawnCactus, callbackScope:this });
-}
+    if (running) {
+      if (space && Phaser.Input.Keyboard.JustDown(space)) jump();
 
-function update(_t, dt){
-  if (paused || over) return;
+      // Scroll ground (keeps motion feel)
+      ground.tilePositionX += (-speed * dt) / 1000;
 
-  setDuck(keyDown?.isDown || keyS?.isDown);
-  if (keySpace && Phaser.Input.Keyboard.JustDown(keySpace)) jump();
+      setGroupSpeed(obstacles, speed);
+      setGroupSpeed(cacti, speed);
 
-  const dx = (C.speed * dt)/1000 * 0.35;
-  mid1.x += dx; mid2.x += dx;
-  if (mid1.x <= -W) mid1.x = mid2.x + W;
-  if (mid2.x <= -W) mid2.x = mid1.x + W;
-  ground.tilePositionX += (-C.speed * dt)/1000;
+      if (t - lastSpawn > spawnMs) { spawn(); lastSpawn = t; }
+    }
 
-  hazards.children.iterate(h=>{
-    if(h && h.x < -80 && !Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), h.getBounds())) h.destroy();
-  });
-  donuts.children.iterate(d=>{ if(d && d.x < -80) d.destroy(); });
-}
-
-// ----------------- GAMEPLAY -----------------
-function onTogglePause(){
-  const btn=document.getElementById('btn-pause');
-  paused=!paused;
-  sceneRef.physics.world.isPaused=paused;
-  paused ? music?.pause() : music?.resume();
-  if (donutTimer) donutTimer.paused = paused;
-  if (cactusTimer) cactusTimer.paused = paused;
-  if (btn) btn.innerText = paused ? 'Resume' : 'Pause';
-}
-
-function setDuck(v){
-  v=!!v; if(duck===v) return; duck=v;
-  if(duck){ player.body.setSize(68,54).setOffset(14,34); }
-  else    { player.body.setSize(68,80).setOffset(14, 8); }
-}
-
-function jump(){
-  if (over || paused || duck) return;
-  const factor = sceneRef.scale.gameSize.height / C.HEIGHT;
-  player.setVelocityY(-1100 * factor);
-  // optional haptic for mobile
-  if (IS_TOUCH) navigator.vibrate?.(15);
-}
-
-function laneYFor(h){
-  const ft = floorTopY();
-  const low  = ft - (h/2 ?? C.lanes.floorInset);
-  const topMin = Math.max(C.lanes.topMinPx, sceneRef.scale.gameSize.height*C.lanes.topMinFrac);
-  const high = Math.max(topMin, ft - C.lanes.maxAirAboveFloor);
-  const mid  = Math.round((low + high)/2);
-  return [low, mid, high][(Math.random()*3)|0];
-}
-function cactusLaneY(){
-  const ft = floorTopY();
-  const gh = C.cactus.h;
-
-  // low = on the ground (flush to floor)
-  const low = groundYFor(gh);
-
-  // top is clamped so cactus stays visible
-  const topMin = Math.max(C.lanes.topMinPx, sceneRef.scale.gameSize.height * C.lanes.topMinFrac);
-  const high   = Math.max(topMin, ft - C.lanes.maxAirAboveFloor);
-
-  // mid = halfway
-  const mid = Math.round((low + high) / 2);
-
-  // pick one at random (low/mid/high)
-  return [low, mid, high][(Math.random() * 3) | 0];
-}
-
-function spawnDonut(){
-  const y = laneYFor(C.donut.size);
-  const o = sceneRef.physics.add.image(W+40, y, 'donut').setDepth(2);
-  donuts.add(o);
-
-  // visual size
-  o.setDisplaySize(C.donut.size, C.donut.size);
-
-  // RECTANGLE body (98% of display), centered
-  const bw = Math.floor(o.width  * 0.98);
-  const bh = Math.floor(o.height * 0.98);
-  o.body.setSize(bw, bh);
-  o.body.setOffset(Math.floor((o.width - bw)/2), Math.floor((o.height - bh)/2));
-
-  o.body.setAllowGravity(false);
-  o.setVelocityX(C.speed);
-  o.body.enable = true;
-}
-
-function spawnCactus(){
-  const y = cactusLaneY();
-  const c = sceneRef.physics.add.sprite(W + 50, y, 'cactus').setDepth(2);
-  hazards.add(c);
-
-  // draw sprite
-  c.setDisplaySize(C.cactus.w, C.cactus.h);
-
-  // --- Mobile-friendly hitbox preset ---
-  // narrower + shorter + nudged down a bit
-  const PRESET = { wScale: 0.50, hScale: 0.65, xOffsetScale: 0.00, yOffsetScale: 0.12 };
-
-  const dw = c.displayWidth, dh = c.displayHeight;
-  const bw = Math.floor(dw * PRESET.wScale);
-  const bh = Math.floor(dh * PRESET.hScale);
-  const xBias = Math.floor(dw * PRESET.xOffsetScale);
-  const yBias = Math.floor(dh * PRESET.yOffsetScale);
-
-  c.body.setSize(bw, bh);
-  c.body.setOffset(Math.floor((dw - bw)/2) + xBias, Math.floor((dh - bh)/2) + yBias);
-
-  c.setImmovable(true);
-  c.body.enable = true;
-  c.body.setAllowGravity(false);
-  c.setVelocityX(C.speed);
-}
-
-
-// ----------------- CALLBACKS -----------------
-function collect(_p, donut){
-  if(!donut || !donut.active || !donut.body || !donut.body.enable || donut._collected) return;
-  donut._collected = true;
-
-  const x=donut.x, y=donut.y;
-  try { donut.disableBody(true,true); } catch(_) { donut.destroy(); }
-
-  score += SCORE_PER_DONUT; setScore(score);
-  try { collectEmitter?.explode(28, x, y); } catch(_){}
-  sceneRef.cameras.main.shake(60, 0.002);
-
-  if (!sceneRef.sound.mute){
-    if (sfxDing){ try{ sfxDing.stop(); sfxDing.play(); }catch(_){ playDingFallback(); } }
-    else playDingFallback();
+    obstacles.children.iterate(o => { if (o && o.active && o.x < -80) o.destroy(); });
+    cacti.children.iterate(o => { if (o && o.active && o.x < -80) o.destroy(); });
   }
-}
 
-function hit(_p, hazard){
-  if (over) return;
-  over = true;
-  // Do NOT disable hazard body immediately, let overlap finish
-  music?.stop();
+  function setGroupSpeed(group, vx) {
+    group.children.iterate(o => { if (o && o.active && o.body) o.setVelocityX(vx); });
+  }
 
-  sceneRef.cameras.main.shake(200, 0.004);
-  player.setTint(0xff6b6b);
-  sceneRef.add.text(W/2, H/2 - 24, 'Game Over', { fontFamily:'system-ui, sans-serif', fontSize:'48px', color:'#ab3cfc' }).setOrigin(0.5);
-  sceneRef.add.text(W/2, H/2 + 14, 'Tap / Space to restart', { fontFamily:'system-ui, sans-serif', fontSize:'18px', color:'#4b2e83' }).setOrigin(0.5);
+  // --- Gameplay functions ---
+  function setDuck(v) {
+    if (duck === v) return;
+    duck = v;
+    if (duck) player.body.setSize(52, 42).setOffset(22, 40);
+    else      player.body.setSize(52, 62).setOffset(22, 20);
+  }
 
-  sceneRef.input.once('pointerdown', restart);
-  sceneRef.input.keyboard.once('keydown', restart);
-}
+  function jump() {
+    if (over) { restart(); return; }
+    if (!running || duck) return;
+    player.setVelocityY(-1200);
+    return true;
+  }
 
-function restart(){
-  try { donutTimer?.remove(); cactusTimer?.remove(); } catch(_){}
-  donutTimer = cactusTimer = null;
-  music?.stop();
-  paused=false; over=false;
-  sceneRef.scene.restart();
-}
+  function spawn() {
+    const floorTop = floor.y - floor.height / 2;
+    const lowY  = floorTop - 6;           // bottom lane (near floor)
+    const highY = Math.max(70, H * 0.18); // top lane
+    const midY  = Math.round((lowY + highY) / 2);
+    const lanes = [lowY, midY, highY];
+    const y = lanes[Math.floor(Math.random() * lanes.length)];
 
-// ----------------- TESTS (optional) -----------------
-function setTC(p,t){ elPass && (elPass.innerText=p); elTotal && (elTotal.innerText=t); }
-async function runTests(){
-  let pass=0,total=0; const T=(n,f)=>{ total++; let ok=false; try{ ok=!!f(); }catch(e){ ok=false; } if(ok) pass++; console.log('[TEST]',n,ok?'PASS':'FAIL'); };
-  T('PhaserLoaded',()=>!!window.Phaser);
-  T('GameBooted',()=>!!sceneRef&&!!player);
-  T('DonutSpawns',()=>{ const b=donuts.getChildren().length; spawnDonut(); return donuts.getChildren().length===b+1; });
-  T('CactusSpawns',()=>{ const b=hazards.getChildren().length; spawnCactus(); return hazards.getChildren().length===b+1; });
-  setTC(pass,total);
-}
+    if (Math.random() < 0.6) {
+      const d = obstacles.create(W + 40, y, 'donut').setDepth(2);
+      d.setDisplaySize(64, 64); d.body.setAllowGravity(false); d.setVelocityX(speed);
+      return;
+    }
+    const c = cacti.create(W + 40, y, 'cactus').setDepth(2);
+    c.setDisplaySize(64, 80); c.body.setAllowGravity(false); c.setVelocityX(speed);
+  }
 
-// ----------------- CLEANUP -----------------
-function onShutdown(){
-  try { donutTimer?.remove(); cactusTimer?.remove(); } catch(_){}
-  donutTimer = cactusTimer = null;
-  try { music && music.stop(); } catch(_){}
-  music = null; sfxDing = null;
-}
+  function collect(_playerRef, donut) {
+    if (!donut.active) return;
+    donut.disableBody(true, true);
+    score += 5;
+    document.getElementById(CONFIG.ui.ids.score).innerText = score;
+
+    if (score > best) {
+      best = score;
+      localStorage.setItem(CONFIG.storage.bestKey, String(best));
+      const bestEl = document.getElementById('best'); if (bestEl) bestEl.innerText = best;
+    }
+
+    if (collectEmitter) collectEmitter.explode(24, donut.x, donut.y);
+    try {
+      if (sceneRef.cache.audio.exists('ding')) {
+        if (sceneRef.sound.locked) sceneRef.sound.once('unlocked', () => sceneRef.sound.play('ding', { volume: 0.9 }));
+        else sceneRef.sound.play('ding', { volume: 0.9 });
+      } else {
+        playBeepFallback(sceneRef);
+      }
+    } catch (e) { playBeepFallback(sceneRef); }
+  }
+
+  function playBeepFallback(scene) {
+    try {
+      const ctx = scene.sound.context, osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.16);
+    } catch {}
+  }
+
+  function crash() {
+    if (over) return;
+    over = true; running = false;
+    try { if (music && music.isPlaying) music.stop(); } catch {}
+    sceneRef.physics.world.isPaused = true;
+    try { player.setTint(0xff4d4d); } catch {}
+
+    const centerX = W / 2;
+    const centerY = H / 2;
+    gameOverText = sceneRef.add.text(centerX, centerY, 'GAME OVER\nPress Space', {
+      fontSize: '48px', fontFamily: 'Arial', color: '#ff4d4d', align: 'center', fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(10);
+  }
+
+  function restart() {
+    if (gameOverText) { gameOverText.destroy(); gameOverText = null; }
+    score = 0; document.getElementById(CONFIG.ui.ids.score).innerText = score;
+    lastSpawn = 0; spawnMs = CONFIG.gameplay.initialSpawnMs; speed = CONFIG.gameplay.speedX;
+    running = true; over = false; sceneRef.scene.restart();
+  }
+
+  function pauseGame(btn) { running = false; sceneRef.physics.world.isPaused = true; if (music) music.pause(); btn.innerText = 'Resume'; }
+  function resumeGame(btn) { running = true; sceneRef.physics.world.isPaused = false; if (music) music.resume(); btn.innerText = 'Pause'; }
+  function toggle() { const btn = document.getElementById(CONFIG.ui.ids.pause); if (running) pauseGame(btn); else resumeGame(btn); }
+})();
+
