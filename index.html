@@ -6,20 +6,17 @@
   <title>Marichibi</title>
 
   <!-- Icons -->
-  <link rel="icon" type="image/png"  href="images/favicon.png" />
-
+  <link rel="icon" type="image/png" href="images/favicon.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
   <!-- Manifest & Theme -->
   <link rel="manifest" href="site.webmanifest" />
   <meta name="theme-color" content="#f2c94c" />
   <script>
-    // Dynamically set theme-color for dark mode in browsers that support JS
+    // Dynamically set theme-color for dark mode
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      var metaThemeColor = document.querySelector("meta[name=theme-color]");
-      if (metaThemeColor) {
-        metaThemeColor.setAttribute("content", "#22223b");
-      }
+      var metaThemeColor = document.querySelector('meta[name=theme-color]');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#22223b');
     }
   </script>
   <meta name="msapplication-TileColor" content="#f2c94c" />
@@ -36,10 +33,12 @@
   <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Firebase SDK (compat build) -->
+  <!-- Removed: Firebase SDKs -->
+  <!--
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+  -->
 </head>
 <body>
   <header class="navbar">
@@ -70,15 +69,12 @@
   <div class="sparkles"></div>
 
   <img src="./images/Marichibi_Coloring_Page.png" alt="Marichibi Logo" class="logo" />
-  
+
   <div class="cta-buttons">
     <a href="#characters" class="btn">Meet the Characters</a>
     <a href="#book" class="btn">Read the Book</a>
     <a href="https://youtube.com/shorts/SNQQ7Gy_RO0" class="btn" target="_blank" rel="noopener">Watch Shorts</a>
-    <a href="/game/" target="_blank" rel="noopener" class="btn">
-  🎮 Play Marichibi’s Fiesta Run
-</a>
-
+    <a href="/game/" target="_blank" rel="noopener" class="btn">🎮 Play Marichibi’s Fiesta Run</a>
     <a href="Marichibi_Coloring_Page.pdf" class="btn" target="_blank" download>🎨 Download Coloring Page</a>
   </div>
 
@@ -119,17 +115,17 @@
 
   <section id="book">
     <h2>📖 Read the Book</h2>
-    <p>
-      Discover “Marichibi y Los Chibitos” — a bilingual picture book full of music, magic, and comunidad.
-    </p>
+    <p>Discover “Marichibi y Los Chibitos” — a bilingual picture book full of music, magic, and comunidad.</p>
     <a href="storybook.html" class="btn">Read Now</a>
   </section>
-<section id="shorts">
+
+  <section id="shorts">
     <h2>🎥 Watch Marichibi Shorts</h2>
     <p>Catch the latest adventures of Marichibi and friends in our YouTube Shorts series!</p>
-  <a href="https://youtube.com/shorts/q_WvDsuPUqE" target="_blank" rel="noopener" class="video-thumbnail">
-    <img src="./images/marichibi-short-thumb.png" alt="Watch Marichibi Short on YouTube" />
-  </a>
+    <a href="https://youtube.com/shorts/q_WvDsuPUqE" target="_blank" rel="noopener" class="video-thumbnail">
+      <img src="./images/marichibi-short-thumb.png" alt="Watch Marichibi Short on YouTube" />
+    </a>
+  </section>
 
   <section id="game">
     <h2>🎮 Marichibi’s Fiesta Run!</h2>
@@ -144,54 +140,113 @@
     <a class="btn" href="Marichibi_Coloring_Page.pdf" target="_blank" download>Download PDF</a>
   </section>
 
+  <!-- Email-only signup (Formspree) -->
   <section id="signup">
     <h2>📬 Sign Up for Marichibi News</h2>
-    <form id="signup-form">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="password" id="password" placeholder="Password" required />
-      <button type="submit" id="signup-btn">Sign Up</button>
+
+    <form id="signup-form"
+          action="https://formspree.io/f/mrblwode"
+          method="POST"
+          class="signup">
+      <label for="email">Get new drops & updates</label>
+
+      <div class="row">
+        <input
+          id="email"
+          name="email"
+          type="email"
+          inputmode="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email" />
+        <button type="submit" id="signup-btn">Subscribe</button>
+      </div>
+
+      <!-- Honeypot (spam trap) -->
+      <input type="text" name="company" tabindex="-1" autocomplete="off"
+             style="position:absolute;left:-9999px;" />
+
+      <!-- Optional hidden fields -->
+      <input type="hidden" name="source" value="marichibi.com" />
+
+      <p id="signup-msg" class="msg" aria-live="polite"></p>
+      <p class="privacy-note">We’ll only use your email for Marichibi updates. Unsubscribe anytime.</p>
     </form>
+
+    <style>
+      /* Minimal styling for the signup block (safe if you keep style.css) */
+      #signup .signup { max-width: 420px; background:#fff; padding:14px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
+      #signup label { display:block; font-weight:700; margin-bottom:8px; color:#4b2e83; }
+      #signup .row { display:flex; gap:8px; }
+      #signup input[type=email] { flex:1; padding:10px 12px; border-radius:10px; border:1px solid #ddd; }
+      #signup button { padding:10px 14px; border:0; border-radius:10px; background:#ab3cfc; color:#fff; font-weight:700; cursor:pointer; }
+      #signup .msg { margin-top:8px; font-size:.95rem; }
+      #signup .privacy-note { margin-top:6px; font-size:.85rem; opacity:.8; }
+      @media (max-width: 480px) {
+        #signup .row { flex-direction: column; }
+        #signup button { width: 100%; }
+      }
+    </style>
   </section>
 
   <footer>
     © 2025 Marichibi. All rights reserved.
   </footer>
 
+  <!-- Your site JS -->
   <script src="main.js"></script>
-  <script>
-    const hamburger = document.getElementById("hamburger");
-    const navLinks = document.getElementById("navLinks");
-    hamburger.addEventListener("click", () => {
-      navLinks.classList.toggle("show");
-    });
-  </script>
-  <script>
-    // Your Firebase config
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "marichibi-site.firebaseapp.com",
-      projectId: "marichibi-site",
-      storageBucket: "marichibi-site.appspot.com",
-      messagingSenderId: "118241090201",
-      appId: "1:118241090201:web:4ee5a706f20d36391d3608"
-    };
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
 
-    // Signup function
-    document.getElementById("signup-form").addEventListener("submit", function(e) {
-      e.preventDefault();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      auth.createUserWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-          alert("Signup successful!");
-        })
-        .catch((error) => {
-          alert("Error: " + error.message);
-        });
-    });
+  <!-- Nav toggle -->
+  <script>
+    const hamburger = document.getElementById('hamburger');
+    const navLinks = document.getElementById('navLinks');
+    hamburger.addEventListener('click', () => navLinks.classList.toggle('show'));
+  </script>
+
+  <!-- AJAX submit for nicer UX (no page reload) -->
+  <script>
+    (function () {
+      const form = document.getElementById('signup-form');
+      const msg  = document.getElementById('signup-msg');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // quick email sanity check
+        const email = form.email.value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          msg.textContent = 'Please enter a valid email.';
+          msg.style.color = '#c0392b';
+          return;
+        }
+
+        // honeypot (likely bot)
+        if (form.company.value) return;
+
+        const data = new FormData(form);
+
+        try {
+          const res = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: data
+          });
+
+          if (res.ok) {
+            msg.textContent = 'Gracias! Check your inbox for a confirmation.';
+            msg.style.color = '#2e7d32';
+            form.reset();
+          } else {
+            msg.textContent = 'Hmm, something went wrong. Try again in a moment.';
+            msg.style.color = '#c0392b';
+          }
+        } catch (err) {
+          msg.textContent = 'Network error. Please try again.';
+          msg.style.color = '#c0392b';
+        }
+      });
+    })();
   </script>
 </body>
 </html>
+
